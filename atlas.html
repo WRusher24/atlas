@@ -1,0 +1,840 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Global Power Atlas: an interactive map and analytical dossier of entities derived from the four-volume Geopolitics, Political Economy & Global Strategy series.">
+<title>Global Power Atlas</title>
+<meta name="color-scheme" content="dark">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: { extend: { colors: { deloitte: '#86BC25' } } }
+  };
+</script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" crossorigin="">
+<style>
+  :root {
+    --bg: #0b1020;
+    --surface: #111a2e;
+    --panel: #0f172a;
+    --line: #22304a;
+    --text: #f3f4f6;
+    --muted: #a3acba;
+    --dim: #7b8494;
+    --green: #86bc25;
+    --amber: #fbbf24;
+    --focus: #86bc25;
+  }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 14px;
+    line-height: 1.45;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+  }
+  button, input, select { font: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  .sr-only {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+  }
+
+  /* Header */
+  .hdr {
+    background: linear-gradient(180deg, #0f172a 0%, #0b1020 100%);
+    border-bottom: 1px solid var(--line);
+    padding: 12px 16px 10px;
+    flex-shrink: 0;
+    z-index: 900;
+  }
+  .hdr-top { display: flex; gap: 16px; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; }
+  .eyebrow { margin: 0; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--dim); }
+  .brand { margin: 2px 0 0; font-size: 22px; font-weight: 700; letter-spacing: -.01em; display: flex; align-items: center; gap: 10px; }
+  .brand-mark { width: 10px; height: 22px; background: var(--green); border-radius: 2px; display: inline-block; }
+  .sub { margin: 3px 0 0; color: var(--muted); max-width: 70ch; font-size: 13px; }
+  .count { margin: 0; color: var(--muted); font-size: 12px; white-space: nowrap; }
+  .count strong { color: var(--text); font-weight: 600; }
+
+  .controls { display: flex; gap: 8px; margin-top: 12px; align-items: stretch; flex-wrap: wrap; }
+  .search { position: relative; flex: 1 1 320px; min-width: 0; }
+  .search input {
+    width: 100%; box-sizing: border-box; height: 40px; padding: 0 12px 0 38px;
+    background: var(--surface); border: 1px solid #2c3b59; border-radius: 10px; color: var(--text);
+  }
+  .search input::placeholder { color: var(--dim); }
+  .search input:focus { border-color: var(--green); }
+  .search .icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--dim); pointer-events: none; }
+  .results {
+    position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 1000;
+    background: var(--panel); border: 1px solid #2c3b59; border-radius: 10px;
+    max-height: min(60vh, 420px); overflow-y: auto; margin: 0; padding: 4px; list-style: none;
+    box-shadow: 0 16px 40px rgba(0,0,0,.45);
+  }
+  .results[hidden] { display: none; }
+  .results li { border-radius: 8px; }
+  .results li[aria-selected="true"] { background: #1b2a44; }
+  .results button {
+    width: 100%; text-align: left; background: none; border: 0; padding: 8px 10px; cursor: pointer;
+    display: flex; justify-content: space-between; gap: 10px; align-items: baseline; border-radius: 8px;
+  }
+  .results .r-title { font-weight: 600; }
+  .results .r-meta { color: var(--muted); font-size: 12px; white-space: nowrap; }
+  .results .r-empty { padding: 10px; color: var(--muted); font-size: 13px; }
+
+  .select-wrap { flex: 0 1 260px; min-width: 180px; }
+  .select-wrap select {
+    width: 100%; height: 40px; box-sizing: border-box; padding: 0 10px;
+    background: var(--surface); border: 1px solid #2c3b59; border-radius: 10px; color: var(--text); color-scheme: dark;
+  }
+  .btn {
+    height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid #2c3b59;
+    background: var(--surface); color: var(--text); cursor: pointer; white-space: nowrap;
+  }
+  .btn:hover { border-color: #3d5278; }
+  .btn[aria-expanded="true"] { border-color: var(--green); color: var(--green); }
+
+  .filters { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; align-items: center; }
+  .filter {
+    display: inline-flex; align-items: center; gap: 7px; height: 32px; padding: 0 12px;
+    border-radius: 999px; border: 1px solid #2c3b59; background: transparent; color: var(--muted); cursor: pointer;
+  }
+  .filter:hover { color: var(--text); border-color: #3d5278; }
+  .filter[aria-pressed="true"] { color: var(--text); background: #18253d; border-color: var(--green); }
+  .filter .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--c, #9ca3af); display: inline-block; }
+  .filter .n { color: var(--dim); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .status { margin: 8px 0 0; font-size: 12px; color: var(--muted); min-height: 1em; }
+  .status.warn { color: var(--amber); }
+
+  /* Map stage */
+  .stage { position: relative; flex: 1 1 auto; min-height: 0; }
+  #map { position: absolute; inset: 0; background: var(--bg); }
+  .leaflet-container { font-family: inherit; background: var(--bg); }
+  .leaflet-container a { color: #9fb3d1; }
+  .leaflet-bar a, .leaflet-bar a:hover { background: var(--surface); color: var(--text); border-color: #2c3b59; }
+  .leaflet-control-attribution { background: rgba(11,16,32,.7) !important; color: var(--dim) !important; font-size: 10px; }
+  .leaflet-tooltip {
+    background: var(--panel); color: var(--text); border: 1px solid #2c3b59; box-shadow: none;
+    font-size: 12px; padding: 4px 8px; border-radius: 6px;
+  }
+  .leaflet-tooltip::before { display: none; }
+
+  .atlas-icon { background: none; border: 0; }
+  .mk-wrap { position: relative; display: block; width: 16px; height: 16px; filter: drop-shadow(0 0 2px rgba(0,0,0,.9)); transition: transform .15s ease; }
+  .mk { position: absolute; inset: 0; background: var(--mk); }
+  .mk-circle, .mk-finance { border-radius: 50%; }
+  .mk-diamond { clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); }
+  .mk-triangle { clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+  .mk-hexagon { clip-path: polygon(25% 4%, 75% 4%, 100% 50%, 75% 96%, 25% 96%, 0 50%); }
+  .mk-square { }
+  .mk-pentagon { clip-path: polygon(50% 0, 100% 38%, 82% 100%, 18% 100%, 0 38%); }
+  .mk-wrap.approx .mk { opacity: .55; }
+  .mk-wrap.approx::after {
+    content: ""; position: absolute; inset: -5px; border: 1px dashed var(--mk); border-radius: 50%;
+  }
+  .mk-wrap.sel { transform: scale(1.35); }
+  .mk-wrap.sel::before {
+    content: ""; position: absolute; inset: -6px; border: 2px solid #fff; border-radius: 50%;
+  }
+
+  .legend {
+    position: absolute; left: 12px; bottom: 12px; z-index: 700; max-width: 260px;
+    background: rgba(15,23,42,.92); border: 1px solid var(--line); border-radius: 10px;
+    padding: 10px 12px; font-size: 12px; color: var(--muted);
+  }
+  .legend h2 { margin: 0 0 6px; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); font-weight: 600; }
+  .legend ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+  .legend li { display: flex; align-items: center; gap: 8px; }
+  .legend .sw { width: 10px; height: 10px; background: var(--c); display: inline-block; flex-shrink: 0; }
+  .legend .note { margin: 8px 0 0; font-size: 11px; color: var(--dim); }
+  .legend .halo { display: inline-block; width: 10px; height: 10px; border-radius: 50%; border: 1px dashed #cbd5e1; vertical-align: -1px; margin-right: 4px; }
+
+  /* Dossier panel */
+  .panel {
+    position: absolute; top: 0; right: 0; bottom: 0; z-index: 800;
+    width: min(440px, 100%); box-sizing: border-box;
+    background: var(--panel); border-left: 1px solid var(--line);
+    display: flex; flex-direction: column;
+    transform: translateX(100%); transition: transform .25s ease;
+    box-shadow: -16px 0 40px rgba(0,0,0,.35);
+  }
+  .panel.open { transform: none; }
+  .panel-head {
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+    padding: 16px 18px 12px; border-bottom: 1px solid var(--line); flex-shrink: 0;
+  }
+  .panel-body { overflow-y: auto; padding: 14px 18px 24px; flex: 1 1 auto; min-height: 0; }
+  .close {
+    width: 36px; height: 36px; border-radius: 10px; border: 1px solid #2c3b59; background: var(--surface);
+    color: var(--text); cursor: pointer; flex-shrink: 0; display: grid; place-items: center;
+  }
+  .close:hover { border-color: #3d5278; }
+  .tag {
+    display: inline-flex; align-items: center; gap: 6px; font-size: 11px; letter-spacing: .06em; text-transform: uppercase;
+    padding: 3px 8px; border-radius: 6px; border: 1px solid #2c3b59; color: var(--muted); background: #0b1324;
+  }
+  .tag .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--c); display: inline-block; }
+  .tag.ok { color: var(--green); border-color: rgba(134,188,37,.45); }
+  .tag.warn { color: var(--amber); border-color: rgba(251,191,36,.45); }
+  .tag.scn { color: #fda4af; border-color: rgba(253,164,175,.45); }
+  .tag-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .title { margin: 8px 0 0; font-size: 20px; line-height: 1.2; font-weight: 700; outline: none; }
+  .banner {
+    margin: 12px 0 0; padding: 10px 12px; border-radius: 10px; font-size: 13px;
+    background: rgba(251,191,36,.08); border: 1px solid rgba(251,191,36,.35); color: #fde68a;
+  }
+  .banner.info { background: #0f1f35; border-color: #2c3b59; color: var(--muted); }
+  .sec { margin-top: 18px; }
+  .sec h3 {
+    margin: 0 0 6px; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--green); font-weight: 600;
+  }
+  .sec p { margin: 0; color: var(--text); }
+  .sec p.missing { color: var(--dim); font-style: italic; }
+  .conn { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+  .conn button {
+    width: 100%; text-align: left; cursor: pointer; display: flex; justify-content: space-between; gap: 10px; align-items: center;
+    background: var(--surface); border: 1px solid #2c3b59; border-radius: 10px; padding: 8px 10px;
+  }
+  .conn button:hover { border-color: #3d5278; }
+  .conn .c-title { font-weight: 600; }
+  .conn .c-meta { color: var(--dim); font-size: 12px; white-space: nowrap; }
+  .conn .c-meta.on { color: var(--green); }
+  .src { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+  .src li { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: #0c1527; }
+  .src .s-head { font-size: 12px; color: var(--muted); }
+  .src .s-chap { margin-top: 2px; color: var(--text); font-weight: 600; font-size: 13px; }
+  .src .s-loc { color: var(--dim); font-size: 12px; }
+  .src .s-note { margin: 6px 0 0; font-size: 13px; color: var(--muted); }
+  .meta-grid { display: grid; grid-template-columns: 1fr; gap: 6px; font-size: 12px; color: var(--muted); }
+  .meta-grid b { color: var(--text); font-weight: 600; }
+  .empty h3 { margin: 0 0 6px; font-size: 16px; color: var(--text); }
+  .empty p { margin: 0 0 10px; color: var(--muted); }
+  .stat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 12px; }
+  .stat { border: 1px solid var(--line); border-radius: 10px; padding: 10px; background: #0c1527; }
+  .stat .k { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .stat .l { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+  .stat .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--c); display: inline-block; }
+
+  @media (max-width: 767px) {
+    .hdr { padding: 10px 12px 8px; }
+    .brand { font-size: 19px; }
+    .count { white-space: normal; }
+    .select-wrap { flex: 1 1 100%; }
+    .panel {
+      top: auto; left: 0; right: 0; width: 100%; max-height: 72%;
+      border-left: 0; border-top: 1px solid var(--line); border-radius: 16px 16px 0 0;
+      transform: translateY(100%);
+      box-shadow: 0 -16px 40px rgba(0,0,0,.45);
+    }
+    .panel.open { transform: none; }
+    .legend { display: none; }
+    .leaflet-control-zoom { margin-top: 8px !important; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .panel, .mk-wrap { transition: none; }
+  }
+</style>
+</head>
+<body>
+
+<header class="hdr">
+  <div class="hdr-top">
+    <div>
+      <p class="eyebrow">Geopolitics · Political Economy · Global Strategy</p>
+      <h1 class="brand"><span class="brand-mark" aria-hidden="true"></span>Global Power Atlas</h1>
+      <p class="sub">Entities, relationships and source notes derived from the four uploaded volumes of the series. Hypothetical scenarios are labelled as such.</p>
+    </div>
+    <p class="count" id="count" aria-live="polite"></p>
+  </div>
+
+  <div class="controls">
+    <div class="search" role="search">
+      <svg class="icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <label for="search" class="sr-only">Search entities</label>
+      <input id="search" type="search" autocomplete="off" spellcheck="false"
+             placeholder="Search countries, chokepoints, institutions, topics…"
+             role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list">
+      <ul id="results" class="results" role="listbox" aria-label="Search results" hidden></ul>
+    </div>
+    <div class="select-wrap">
+      <label for="quick" class="sr-only">Quick select entity</label>
+      <select id="quick"><option value="">Quick select entity…</option></select>
+    </div>
+    <button type="button" id="panel-toggle" class="btn" aria-expanded="false" aria-controls="dossier">Dossier</button>
+  </div>
+
+  <div class="filters" role="group" aria-label="Filter markers by category">
+    <button type="button" class="filter" data-filter="All" aria-pressed="true"><span class="dot" style="--c:#e5e7eb"></span>All <span class="n" data-n="All"></span></button>
+    <!-- category filters are inserted by the script -->
+  </div>
+  <p class="status" id="status" role="status"></p>
+</header>
+
+<main class="stage">
+  <div id="map" role="region" aria-label="Map of entities with reliable or approximate coordinates"></div>
+
+  <div class="legend" aria-label="Map legend">
+    <h2>Legend</h2>
+    <ul id="legend-list"></ul>
+    <p class="note"><span class="halo"></span>Dashed ring = approximate location. Shape and colour show the primary category. Entities without reliable coordinates are not placed on the map.</p>
+  </div>
+
+  <aside id="dossier" class="panel" aria-label="Entity dossier" inert>
+    <div class="panel-head">
+      <div style="min-width:0">
+        <div id="dossier-kicker" class="tag-row"></div>
+        <h2 id="dossier-title" class="title" tabindex="-1">No entity selected</h2>
+      </div>
+      <button type="button" id="panel-close" class="close" aria-label="Close dossier">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+      </button>
+    </div>
+    <div class="panel-body" id="dossier-body"></div>
+  </aside>
+</main>
+
+<script>
+/*DATA:START*/
+window.ATLAS_DATA = null;
+/*DATA:END*/
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js" crossorigin="" onerror="window.__leafletFailed = true"></script>
+<script>
+(function () {
+  'use strict';
+
+  /* ---------- helpers ---------- */
+  var NOT_STATED = 'Not stated in the source volumes.';
+  var $ = function (sel, root) { return (root || document).querySelector(sel); };
+  var $$ = function (sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); };
+  var esc = function (v) {
+    return String(v).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  };
+  var isNum = function (v) { return typeof v === 'number' && isFinite(v); };
+  var str = function (v) { return (typeof v === 'string' && v.trim()) ? v.trim() : null; };
+  var arr = function (v) { return Array.isArray(v) ? v : []; };
+  var typeLabel = function (t) { return String(t || 'other').replace(/-/g, ' '); };
+  var isMapped = function (e) {
+    return isNum(e.latitude) && isNum(e.longitude) &&
+      Math.abs(e.latitude) <= 90 && Math.abs(e.longitude) <= 180;
+  };
+  var isDesktop = function () { return window.matchMedia('(min-width: 768px)').matches; };
+
+  /* ---------- category definitions (colour + marker shape) ---------- */
+  var CATEGORIES = [
+    { key: 'Trade',       color: '#2dd4bf', shape: 'diamond'  },
+    { key: 'Energy',      color: '#f97316', shape: 'triangle' },
+    { key: 'Resources',   color: '#a78bfa', shape: 'hexagon'  },
+    { key: 'Military',    color: '#f43f5e', shape: 'square'   },
+    { key: 'Finance',     color: '#facc15', shape: 'circle'   },
+    { key: 'Geopolitics', color: '#60a5fa', shape: 'pentagon' }
+  ];
+  var CAT = {};
+  CATEGORIES.forEach(function (c) { CAT[c.key] = c; });
+
+  /* ---------- normalise the embedded dataset ---------- */
+  var raw = window.ATLAS_DATA || {};
+  var dataError = window.ATLAS_DATA ? null : 'Dataset is not embedded in this file. Run scripts/build_atlas.py.';
+
+  function normalise(r) {
+    return {
+      id: String(r.id),
+      title: str(r.title) || String(r.id),
+      type: str(r.type) || 'other',
+      categories: arr(r.categories).filter(function (c) { return CAT[c]; }),
+      latitude: isNum(r.latitude) ? r.latitude : null,
+      longitude: isNum(r.longitude) ? r.longitude : null,
+      coordinateSource: str(r.coordinateSource),
+      coordinatesApproximate: r.coordinatesApproximate === true,
+      geography: str(r.geography),
+      economicResourceSignificance: str(r.economicResourceSignificance),
+      strategicDynamics: str(r.strategicDynamics),
+      vulnerabilities: str(r.vulnerabilities),
+      connectedEntities: arr(r.connectedEntities).map(String),
+      sources: arr(r.sources).filter(function (s) { return s && typeof s === 'object'; }).map(function (s) {
+        return {
+          volume: isNum(s.volume) ? s.volume : null,
+          book: str(s.book),
+          chapter: str(s.chapter),
+          locator: str(s.locator),
+          note: str(s.note),
+          contentKind: str(s.contentKind)
+        };
+      }),
+      confidence: str(r.confidence),
+      needsReview: r.needsReview === true,
+      reviewNotes: str(r.reviewNotes)
+    };
+  }
+
+  var entities = [];
+  var byId = new Map();
+  arr(raw.entities).forEach(function (r) {
+    if (!r || r.id === undefined || byId.has(String(r.id))) return;
+    var e = normalise(r);
+    entities.push(e);
+    byId.set(e.id, e);
+  });
+  entities.sort(function (a, b) { return a.title.localeCompare(b.title); });
+
+  var mapped = entities.filter(isMapped);
+
+  entities.forEach(function (e) {
+    e.searchFields = [
+      { label: 'Title', text: e.title.toLowerCase() },
+      { label: 'Type', text: typeLabel(e.type).toLowerCase() },
+      { label: 'Category', text: e.categories.join(' ').toLowerCase() },
+      { label: 'Geography', text: (e.geography || '').toLowerCase() },
+      { label: 'Connected entity', text: e.connectedEntities.map(function (id) {
+          return byId.has(id) ? byId.get(id).title : '';
+        }).join(' ').toLowerCase() }
+    ];
+  });
+
+  function primaryCategory(e) { return e.categories[0] || null; }
+
+  /* ---------- DOM refs ---------- */
+  var elCount = $('#count');
+  var elStatus = $('#status');
+  var elSearch = $('#search');
+  var elResults = $('#results');
+  var elQuick = $('#quick');
+  var elPanel = $('#dossier');
+  var elPanelBody = $('#dossier-body');
+  var elPanelTitle = $('#dossier-title');
+  var elPanelKicker = $('#dossier-kicker');
+  var elToggle = $('#panel-toggle');
+  var elFilters = $('.filters');
+  var elLegend = $('#legend-list');
+
+  /* ---------- state ---------- */
+  var activeFilter = 'All';
+  var selectedId = null;
+  var lastFocus = null;
+  var resultIndex = -1;
+  var currentResults = [];
+  var markerById = new Map();
+  var map = null;
+  var markerLayer = null;
+
+  function setStatus(msg, warn) {
+    elStatus.textContent = msg || '';
+    elStatus.className = 'status' + (warn ? ' warn' : '');
+  }
+
+  /* ---------- filter buttons, legend, quick select ---------- */
+  function countFor(key) {
+    return key === 'All' ? entities.length : entities.filter(function (e) { return e.categories.indexOf(key) !== -1; }).length;
+  }
+
+  CATEGORIES.forEach(function (c) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'filter';
+    b.setAttribute('data-filter', c.key);
+    b.setAttribute('aria-pressed', 'false');
+    b.style.setProperty('--c', c.color);
+    b.innerHTML = '<span class="dot"></span>' + esc(c.key) + ' <span class="n" data-n="' + esc(c.key) + '"></span>';
+    elFilters.appendChild(b);
+
+    var li = document.createElement('li');
+    li.innerHTML = '<span class="sw" style="--c:' + c.color + '"></span>' + esc(c.key) +
+      ' <span style="color:#7b8494">(' + countFor(c.key) + ')</span>';
+    elLegend.appendChild(li);
+  });
+
+  entities.forEach(function (e) {
+    var o = document.createElement('option');
+    o.value = e.id;
+    o.textContent = e.title + (isMapped(e) ? '' : ' (not mapped)');
+    elQuick.appendChild(o);
+  });
+
+  elFilters.addEventListener('click', function (ev) {
+    var btn = ev.target.closest('button[data-filter]');
+    if (btn) setFilter(btn.getAttribute('data-filter'));
+  });
+
+  function visibleEntities() {
+    return mapped.filter(function (e) {
+      return activeFilter === 'All' || e.categories.indexOf(activeFilter) !== -1;
+    });
+  }
+
+  function updateCounts() {
+    var visible = visibleEntities().length;
+    elCount.innerHTML = 'Showing <strong>' + visible + '</strong> of ' + mapped.length +
+      ' mapped · <strong>' + entities.length + '</strong> entities in dataset';
+    $$('.filter').forEach(function (b) {
+      var key = b.getAttribute('data-filter');
+      b.setAttribute('aria-pressed', key === activeFilter ? 'true' : 'false');
+      var n = $('[data-n="' + key + '"]', b);
+      if (n) n.textContent = countFor(key);
+    });
+  }
+
+  function setFilter(key, silent) {
+    if (key !== 'All' && !CAT[key]) return;
+    activeFilter = key;
+    renderMarkers();
+    updateCounts();
+    if (!silent) setStatus('');
+  }
+
+  /* ---------- map ---------- */
+  function markerIcon(e, selected) {
+    var primary = primaryCategory(e);
+    var def = primary ? CAT[primary] : { color: '#9ca3af', shape: 'circle' };
+    var cls = 'mk-wrap' + (e.coordinatesApproximate ? ' approx' : '') + (selected ? ' sel' : '');
+    return L.divIcon({
+      className: 'atlas-icon',
+      html: '<span class="' + cls + '" style="--mk:' + def.color + '"><span class="mk mk-' + def.shape + '"></span></span>',
+      iconSize: [16, 16],
+      iconAnchor: [8, 8],
+      tooltipAnchor: [10, 0]
+    });
+  }
+
+  function initMap() {
+    if (typeof L === 'undefined' || window.__leafletFailed) {
+      setStatus('The map library could not be loaded. The dossier and search still work.', true);
+      return;
+    }
+    map = L.map('map', { zoomControl: false, minZoom: 2, worldCopyJump: true });
+    L.control.zoom({ position: 'topleft' }).addTo(map);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      subdomains: 'abcd',
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
+    }).addTo(map);
+    markerLayer = L.layerGroup().addTo(map);
+
+    mapped.forEach(function (e) {
+      var m = L.marker([e.latitude, e.longitude], {
+        icon: markerIcon(e, false),
+        title: e.title,
+        alt: e.title,
+        keyboard: true,
+        riseOnHover: true
+      });
+      m.bindTooltip(esc(e.title) + (e.coordinatesApproximate ? ' (approximate)' : ''));
+      m.on('click', function () { openEntity(e.id, { fromMap: true }); });
+      markerById.set(e.id, m);
+    });
+
+    renderMarkers();
+    if (mapped.length) {
+      map.fitBounds(L.latLngBounds(mapped.map(function (e) { return [e.latitude, e.longitude]; })), { padding: [40, 40] });
+    } else {
+      map.setView([20, 0], 2);
+    }
+  }
+
+  function renderMarkers() {
+    if (!markerLayer) return;
+    markerLayer.clearLayers();
+    visibleEntities().forEach(function (e) {
+      var m = markerById.get(e.id);
+      if (m) markerLayer.addLayer(m);
+    });
+  }
+
+  function setSelectedMarker(id) {
+    if (selectedId && markerById.has(selectedId)) {
+      markerById.get(selectedId).setIcon(markerIcon(byId.get(selectedId), false));
+    }
+    selectedId = id;
+    if (id && markerById.has(id)) {
+      markerById.get(id).setIcon(markerIcon(byId.get(id), true));
+    }
+  }
+
+  function focusEntity(e) {
+    if (!map || !isMapped(e)) return;
+    var z = (e.type === 'country' || e.type === 'region') ? 4
+          : (e.type === 'city' || e.type === 'port' || e.type === 'military-site' || e.type === 'financial-center') ? 7
+          : 5;
+    var offset = [0, 0];
+    if (elPanel.classList.contains('open')) {
+      offset = isDesktop() ? [elPanel.offsetWidth / 2, 0] : [0, elPanel.offsetHeight / 2];
+    }
+    var pt = map.project(L.latLng(e.latitude, e.longitude), z).add(L.point(offset[0], offset[1]));
+    map.flyTo(map.unproject(pt, z), z, { duration: 0.8 });
+  }
+
+  /* ---------- dossier panel ---------- */
+  function openPanel() {
+    elPanel.classList.add('open');
+    elPanel.inert = false;
+    elToggle.setAttribute('aria-expanded', 'true');
+    elPanel.setAttribute('aria-hidden', 'false');
+  }
+
+  function closePanel(restoreFocus) {
+    elPanel.classList.remove('open');
+    elPanel.inert = true;
+    elToggle.setAttribute('aria-expanded', 'false');
+    if (restoreFocus) {
+      var target = lastFocus && document.body.contains(lastFocus) ? lastFocus : elToggle;
+      target.focus();
+    }
+  }
+
+  elToggle.addEventListener('click', function () {
+    if (elPanel.classList.contains('open')) { closePanel(true); }
+    else { if (!selectedId) renderEmpty(); openPanel(); }
+  });
+  $('#panel-close').addEventListener('click', function () { closePanel(true); });
+
+  function renderEmpty() {
+    setSelectedMarker(null);
+    elPanelKicker.innerHTML = '';
+    elPanelTitle.textContent = 'No entity selected';
+    var cats = CATEGORIES.map(function (c) {
+      return '<div class="stat"><div class="k">' + countFor(c.key) + '</div>' +
+             '<div class="l"><span class="dot" style="--c:' + c.color + '"></span>' + esc(c.key) + '</div></div>';
+    }).join('');
+    var needs = entities.filter(function (e) { return e.needsReview; }).length;
+    elPanelBody.innerHTML =
+      '<div class="empty">' +
+        '<p>Select a marker on the map, search by name or topic, or use the quick-select list. ' +
+        'Each dossier separates the source-stated facts from approximate or missing information.</p>' +
+        '<p>Entities without reliable coordinates appear in search and the quick-select list, but are not placed on the map.</p>' +
+      '</div>' +
+      '<div class="stat-grid" style="grid-template-columns:repeat(2,1fr)">' +
+        '<div class="stat"><div class="k">' + entities.length + '</div><div class="l">Entities in dataset</div></div>' +
+        '<div class="stat"><div class="k">' + mapped.length + '</div><div class="l">Placed on map</div></div>' +
+        '<div class="stat"><div class="k">' + needs + '</div><div class="l">Flagged for review</div></div>' +
+        '<div class="stat"><div class="k">' + (entities.length - mapped.length) + '</div><div class="l">Not mapped</div></div>' +
+      '</div>' +
+      '<div class="sec"><h3>Entities by category</h3><div class="stat-grid">' + cats + '</div></div>';
+  }
+
+  function coordBadge(e) {
+    if (!isMapped(e)) return '<span class="tag">No reliable coordinates · not on map</span>';
+    if (e.coordinatesApproximate) return '<span class="tag warn">Approximate location</span>';
+    return '<span class="tag ok">Reliable coordinates</span>';
+  }
+
+  function section(title, text) {
+    return '<div class="sec"><h3>' + esc(title) + '</h3>' +
+      (text ? '<p>' + esc(text) + '</p>' : '<p class="missing">' + NOT_STATED + '</p>') + '</div>';
+  }
+
+  function renderDossier(e, opts) {
+    opts = opts || {};
+    var catTags = e.categories.map(function (c) {
+      return '<span class="tag"><span class="dot" style="--c:' + CAT[c].color + '"></span>' + esc(c) + '</span>';
+    }).join('');
+    elPanelKicker.innerHTML = '<span class="tag">' + esc(typeLabel(e.type)) + '</span>';
+    elPanelTitle.textContent = e.title;
+
+    var banners = [];
+    if (opts.filterReset) banners.push('<div class="banner info">The category filter was set to All so this entity is visible.</div>');
+    if (!isMapped(e)) {
+      banners.push('<div class="banner info">This entity is in the dataset but has no reliable coordinates, so it cannot be placed on the map.</div>');
+    } else if (e.coordinateSource === 'reference') {
+      banners.push('<div class="banner info">The map position is a reference point for the named place. It is not stated in the books.</div>');
+    }
+    if (e.needsReview) {
+      banners.push('<div class="banner"><strong>Needs review.</strong> ' + esc(e.reviewNotes || 'Some details are uncertain or incomplete.') + '</div>');
+    }
+
+    var conn = e.connectedEntities.map(function (id) { return byId.get(id); }).filter(Boolean);
+    var connHtml = conn.length
+      ? '<ul class="conn">' + conn.map(function (c) {
+          return '<li><button type="button" data-open="' + esc(c.id) + '"><span class="c-title">' + esc(c.title) + '</span>' +
+            '<span class="c-meta ' + (isMapped(c) ? 'on' : '') + '">' + esc(typeLabel(c.type)) + ' · ' + (isMapped(c) ? 'on map' : 'not mapped') + '</span></button></li>';
+        }).join('') + '</ul>'
+      : '<p class="missing">' + NOT_STATED + '</p>';
+
+    var srcHtml = e.sources.length
+      ? '<ol class="src">' + e.sources.map(function (s) {
+          var kind = s.contentKind === 'scenario'
+            ? '<span class="tag scn">Hypothetical scenario</span>'
+            : (s.contentKind ? '<span class="tag">' + esc(s.contentKind) + '</span>' : '');
+          return '<li><div class="s-head">' + (s.volume ? 'Vol. ' + esc(s.volume) + ' · ' : '') + esc(s.book || 'Unknown book') + '</div>' +
+            '<div class="s-chap">' + esc(s.chapter || 'Chapter not recorded') + '</div>' +
+            (s.locator ? '<div class="s-loc">Section: ' + esc(s.locator) + '</div>' : '') +
+            (s.note ? '<p class="s-note">' + esc(s.note) + '</p>' : '') +
+            (kind ? '<div class="tag-row">' + kind + '</div>' : '') + '</li>';
+        }).join('') + '</ol>'
+      : '<p class="missing">' + NOT_STATED + '</p>';
+
+    elPanelBody.innerHTML =
+      '<div class="tag-row">' + coordBadge(e) +
+        (e.confidence ? '<span class="tag">Confidence: ' + esc(e.confidence) + '</span>' : '') + '</div>' +
+      (catTags ? '<div class="tag-row" aria-label="Categories">' + catTags + '</div>' : '') +
+      banners.join('') +
+      section('Geography', e.geography) +
+      section('Economic and resource significance', e.economicResourceSignificance) +
+      section('Strategic dynamics', e.strategicDynamics) +
+      section('Vulnerabilities', e.vulnerabilities) +
+      '<div class="sec"><h3>Connected entities and networks</h3>' + connHtml + '</div>' +
+      '<div class="sec"><h3>Sources and confidence</h3>' + srcHtml + '</div>';
+  }
+
+  elPanelBody.addEventListener('click', function (ev) {
+    var b = ev.target.closest('button[data-open]');
+    if (b) openEntity(b.getAttribute('data-open'), { fromConnection: true });
+  });
+
+  /* ---------- selection ---------- */
+  function openEntity(id, opts) {
+    opts = opts || {};
+    var e = byId.get(id);
+    if (!e) return;
+    var filterReset = false;
+    if (activeFilter !== 'All' && e.categories.indexOf(activeFilter) === -1) {
+      setFilter('All', true);
+      filterReset = true;
+    }
+    if (!opts.fromMap && document.activeElement && !elPanel.contains(document.activeElement)) {
+      lastFocus = document.activeElement;
+    }
+    setSelectedMarker(id);
+    renderDossier(e, { filterReset: filterReset });
+    openPanel();
+    if (isMapped(e)) {
+      focusEntity(e);
+      setStatus(filterReset ? 'Filter set to All to show ' + e.title + '.' : '');
+    } else {
+      setStatus(e.title + ' has no reliable coordinates and is not placed on the map.', true);
+    }
+    elPanelTitle.setAttribute('tabindex', '-1');
+    elPanelTitle.focus({ preventScroll: true });
+    elPanelBody.scrollTop = 0;
+    elQuick.value = id;
+    try { history.replaceState(null, '', '#' + encodeURIComponent(id)); } catch (err) { /* file or sandboxed contexts */ }
+  }
+
+  elQuick.addEventListener('change', function () {
+    if (elQuick.value) openEntity(elQuick.value);
+  });
+
+  /* ---------- search ---------- */
+  function search(q) {
+    var tokens = q.toLowerCase().split(/\s+/).filter(Boolean);
+    if (!tokens.length) return [];
+    var hits = [];
+    entities.forEach(function (e) {
+      var all = e.searchFields.map(function (f) { return f.text; }).join('\u0001');
+      var ok = tokens.every(function (t) { return all.indexOf(t) !== -1; });
+      if (!ok) return;
+      var titleLc = e.title.toLowerCase();
+      var score = titleLc.indexOf(tokens[0]) === 0 ? 0
+                : tokens.every(function (t) { return titleLc.indexOf(t) !== -1; }) ? 1 : 2;
+      var field = e.searchFields.filter(function (f) {
+        return tokens.some(function (t) { return f.text.indexOf(t) !== -1; });
+      })[0];
+      hits.push({ e: e, score: score, label: field ? field.label : 'Title' });
+    });
+    hits.sort(function (a, b) { return a.score - b.score || a.e.title.localeCompare(b.e.title); });
+    return hits.slice(0, 12);
+  }
+
+  function renderResults() {
+    var q = elSearch.value;
+    resultIndex = -1;
+    if (!q.trim()) {
+      elResults.hidden = true;
+      elSearch.setAttribute('aria-expanded', 'false');
+      currentResults = [];
+      return;
+    }
+    currentResults = search(q);
+    elResults.hidden = false;
+    elSearch.setAttribute('aria-expanded', 'true');
+    if (!currentResults.length) {
+      elResults.innerHTML = '<li class="r-empty">No entities match “' + esc(q.trim()) +
+        '”. Try a country, chokepoint, institution, event or category name.</li>';
+      return;
+    }
+    elResults.innerHTML = currentResults.map(function (h, i) {
+      return '<li role="option" id="opt-' + i + '" aria-selected="false" data-id="' + esc(h.e.id) + '">' +
+        '<button type="button" tabindex="-1"><span class="r-title">' + esc(h.e.title) + '</span>' +
+        '<span class="r-meta">' + esc(typeLabel(h.e.type)) + ' · ' + esc(h.label) +
+        (isMapped(h.e) ? '' : ' · not mapped') + '</span></button></li>';
+    }).join('');
+  }
+
+  function moveResult(delta) {
+    if (!currentResults.length) return;
+    resultIndex = (resultIndex + delta + currentResults.length) % currentResults.length;
+    $$('#results li[role="option"]').forEach(function (li, i) {
+      li.setAttribute('aria-selected', i === resultIndex ? 'true' : 'false');
+    });
+    elSearch.setAttribute('aria-activedescendant', 'opt-' + resultIndex);
+  }
+
+  function chooseResult(index) {
+    var hit = currentResults[index < 0 ? 0 : index];
+    if (!hit) return;
+    elSearch.value = '';
+    renderResults();
+    elSearch.removeAttribute('aria-activedescendant');
+    openEntity(hit.e.id);
+  }
+
+  elSearch.addEventListener('input', renderResults);
+  elSearch.addEventListener('keydown', function (ev) {
+    if (ev.key === 'ArrowDown') { ev.preventDefault(); moveResult(1); }
+    else if (ev.key === 'ArrowUp') { ev.preventDefault(); moveResult(-1); }
+    else if (ev.key === 'Enter') { ev.preventDefault(); chooseResult(resultIndex); }
+    else if (ev.key === 'Escape') {
+      if (!elResults.hidden) { elSearch.value = ''; renderResults(); }
+    }
+  });
+  elResults.addEventListener('click', function (ev) {
+    var li = ev.target.closest('li[data-id]');
+    if (li) openEntity(li.getAttribute('data-id'));
+  });
+  elResults.addEventListener('mousedown', function (ev) { ev.preventDefault(); });
+
+  document.addEventListener('click', function (ev) {
+    if (!ev.target.closest('.search')) {
+      elResults.hidden = true;
+      elSearch.setAttribute('aria-expanded', 'false');
+    }
+  });
+
+  document.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Escape' && elPanel.classList.contains('open') && elResults.hidden) {
+      closePanel(true);
+    }
+  });
+
+  /* ---------- boot ---------- */
+  function boot() {
+    if (dataError) {
+      setStatus(dataError, true);
+      elPanelTitle.textContent = 'Dataset unavailable';
+      elPanelBody.innerHTML = '<p class="missing">' + esc(dataError) + '</p>';
+      updateCounts();
+      return;
+    }
+    updateCounts();
+    initMap();
+    renderEmpty();
+    if (isDesktop()) openPanel();
+    var hash = decodeURIComponent((location.hash || '').slice(1));
+    if (hash && byId.has(hash)) openEntity(hash);
+    window.addEventListener('hashchange', function () {
+      var h = decodeURIComponent((location.hash || '').slice(1));
+      if (h && byId.has(h) && h !== selectedId) openEntity(h);
+    });
+  }
+
+  boot();
+})();
+</script>
+</body>
+</html>

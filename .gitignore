@@ -1,0 +1,29 @@
+# Source EPUBs and any copies of them are never committed
+*.epub
+*.EPUB
+source/
+uploads/
+
+# Intermediate extraction output (per-volume working files)
+extract/
+extraction/tmp/
+scratch/
+*.tmp.json
+
+# Secrets and local configuration
+.env
+.env.*
+*.pem
+*.key
+secrets.*
+
+# Editor, OS and tooling noise
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+node_modules/
+__pycache__/
+*.pyc
+.claude/settings.local.json
