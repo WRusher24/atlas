@@ -23,9 +23,9 @@ The page loads three external resources, all over HTTPS:
 
 - Tailwind CSS from `cdn.tailwindcss.com`
 - Leaflet 1.9.4 from `cdnjs.cloudflare.com`
-- CartoDB Dark Matter basemap tiles from `basemaps.cartocdn.com`
+- Basemap tiles from keyless providers: Esri World Dark Gray Canvas (default) from `server.arcgisonline.com`, and OpenStreetMap standard tiles from `tile.openstreetmap.org` (selectable with the layer control, top right)
 
-If the map library cannot load, the page shows a notice and the dossier and search still work. If the basemap is unreachable, markers still render on a dark background.
+No API key is needed for any of these. If the map library cannot load, the page shows a notice and the dossier and search still work. If the tiles fail to load, a notice explains this, markers still render, and the layer control lets you switch basemap.
 
 ## Deploying to Vercel
 
@@ -136,5 +136,5 @@ The script exits non-zero if validation fails, for example on a dangling connect
 - Coordinates are reference points, not survey-grade positions. Country and region markers are representative points, not territorial centres.
 - The dataset reflects what the four volumes discuss. It is not an independent check of their claims.
 - Connections are those the books state or clearly imply. Many real relationships are not captured.
-- Map tiles and the Tailwind and Leaflet libraries come from third-party CDNs. The app needs network access to render the basemap.
+- Map tiles and the Tailwind and Leaflet libraries come from third-party CDNs. The app needs network access to render the basemap. The basemaps are keyless public services, which can change their terms or availability without notice.
 - The app has been tested in headless Chromium against a local copy of Leaflet, with the CDN tile requests stubbed. It has not been tested against live CDN responses or on real mobile devices.

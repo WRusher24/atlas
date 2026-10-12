@@ -510,11 +510,26 @@ window.ATLAS_DATA = {"meta":{"title":"Global Power Atlas","description":"Entitie
     }
     map = L.map('map', { zoomControl: false, minZoom: 2, worldCopyJump: true });
     L.control.zoom({ position: 'topleft' }).addTo(map);
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-      subdomains: 'abcd',
+    // Keyless basemaps only. The dark style is the default; the standard style is a fallback choice.
+    var darkBase = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+      maxZoom: 16,
+      attribution: 'Basemap &copy; Esri, HERE, Garmin, OpenStreetMap contributors'
+    });
+    var standardBase = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
-      attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
-    }).addTo(map);
+      attribution: '&copy; OpenStreetMap contributors'
+    });
+    var tileFailures = 0;
+    [darkBase, standardBase].forEach(function (layer) {
+      layer.on('tileerror', function () {
+        tileFailures += 1;
+        if (tileFailures === 5) {
+          setStatus('Basemap tiles could not be loaded. Markers and the dossier still work. Try the other basemap in the layer control.', true);
+        }
+      });
+    });
+    darkBase.addTo(map);
+    L.control.layers({ 'Dark (default)': darkBase, 'Standard': standardBase }, null, { position: 'topright' }).addTo(map);
     markerLayer = L.layerGroup().addTo(map);
 
     mapped.forEach(function (e) {
