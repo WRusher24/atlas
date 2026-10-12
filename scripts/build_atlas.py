@@ -37,7 +37,11 @@ TEXT_FIELDS = [
 
 # Known cross-volume duplicates the extraction agents may have written differently.
 # Filled in after reviewing the merge report; keys are raw ids, values are canonical ids.
-ALIASES = {}
+ALIASES = {
+    "russian-invasion-ukraine-2022": "russia-invasion-ukraine-2022",
+    "russian-reserves-immobilization-2022": "russia-reserve-immobilization-2022",
+    "us-fifth-fleet-bahrain": "us-fifth-fleet",
+}
 
 
 def slug(value):
